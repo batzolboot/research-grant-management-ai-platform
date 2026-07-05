@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -10,8 +10,8 @@ class Grant(Base):
     title = Column(String, nullable=False)
     principal_investigator = Column(String, nullable=False)
     funding_agency = Column(String, nullable=False)
-    amount = Column(Float, nullable=False)
-    deadline = Column(String, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    deadline = Column(Date, nullable=False)
     status = Column(String, nullable=False, default="Pending")
     compliance_status = Column(String, nullable=True)
 

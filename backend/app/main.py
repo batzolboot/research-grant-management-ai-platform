@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas, crud
 from app.database import engine, get_db
+from fastapi import FastAPI, Depends, HTTPException, status
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,7 +25,7 @@ def health_check():
     return {"status": "healthy"}
 
 
-@app.post("/grants", response_model=schemas.GrantResponse)
+@app.post("/grants", response_model=schemas.GrantResponse, status_code=status.HTTP_201_CREATED)
 def create_grant(grant: schemas.GrantCreate, db: Session = Depends(get_db)):
     return crud.create_grant(db, grant)
 

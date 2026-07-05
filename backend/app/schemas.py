@@ -1,3 +1,5 @@
+from datetime import date
+from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel
 
@@ -6,8 +8,8 @@ class GrantBase(BaseModel):
     title: str
     principal_investigator: str
     funding_agency: str
-    amount: float
-    deadline: str
+    amount: Decimal
+    deadline: date
     status: str = "Pending"
     compliance_status: Optional[str] = None
 
@@ -20,8 +22,8 @@ class GrantUpdate(BaseModel):
     title: Optional[str] = None
     principal_investigator: Optional[str] = None
     funding_agency: Optional[str] = None
-    amount: Optional[float] = None
-    deadline: Optional[str] = None
+    amount: Optional[Decimal] = None
+    deadline: Optional[date] = None
     status: Optional[str] = None
     compliance_status: Optional[str] = None
 
