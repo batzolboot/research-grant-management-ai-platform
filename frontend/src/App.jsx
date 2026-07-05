@@ -5,6 +5,8 @@ import "./App.css";
 function App() {
   const [grants, setGrants] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [editingGrantId, setEditingGrantId] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   const [filters, setFilters] = useState({
     principal_investigator: "",
@@ -45,17 +47,46 @@ function App() {
   }, []);
 
   const handleFormChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleFilterChange = (e) => {
-    setFilters({
-      ...filters,
-      [e.target.name]: e.target.value,
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  const handleEditChange = (e) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  const startEdit = (grant) => {
+    setEditingGrantId(grant.id);
+    setEditForm({
+      title: grant.title,
+      principal_investigator: grant.principal_investigator,
+      funding_agency: grant.funding_agency,
+      amount: grant.amount,
+      deadline: grant.deadline,
+      status: grant.status,
+      compliance_status: grant.compliance_status || "",
     });
+  };
+
+  const cancelEdit = () => {
+    setEditingGrantId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async (id) => {
+    await api.put(`/grants/${id}`, {
+      ...editForm,
+      amount: Number(editForm.amount),
+      compliance_status: editForm.compliance_status || null,
+    });
+
+    setEditingGrantId(null);
+    setEditForm({});
+    fetchGrants();
+    fetchSummary();
   };
 
   const handleCreateGrant = async (e) => {
@@ -63,6 +94,7 @@ function App() {
 
     await api.post("/grants", {
       ...form,
+      amount: Number(form.amount),
       compliance_status: form.compliance_status || null,
     });
 
@@ -135,46 +167,11 @@ function App() {
         <h2>Create Grant</h2>
 
         <form onSubmit={handleCreateGrant} className="form">
-          <input
-            name="title"
-            placeholder="Grant Title"
-            value={form.title}
-            onChange={handleFormChange}
-            required
-          />
-
-          <input
-            name="principal_investigator"
-            placeholder="Principal Investigator"
-            value={form.principal_investigator}
-            onChange={handleFormChange}
-            required
-          />
-
-          <input
-            name="funding_agency"
-            placeholder="Funding Agency"
-            value={form.funding_agency}
-            onChange={handleFormChange}
-            required
-          />
-
-          <input
-            name="amount"
-            placeholder="Amount"
-            type="number"
-            value={form.amount}
-            onChange={handleFormChange}
-            required
-          />
-
-          <input
-            name="deadline"
-            type="date"
-            value={form.deadline}
-            onChange={handleFormChange}
-            required
-          />
+          <input name="title" placeholder="Grant Title" value={form.title} onChange={handleFormChange} required />
+          <input name="principal_investigator" placeholder="Principal Investigator" value={form.principal_investigator} onChange={handleFormChange} required />
+          <input name="funding_agency" placeholder="Funding Agency" value={form.funding_agency} onChange={handleFormChange} required />
+          <input name="amount" placeholder="Amount" type="number" value={form.amount} onChange={handleFormChange} required />
+          <input name="deadline" type="date" value={form.deadline} onChange={handleFormChange} required />
 
           <select name="status" value={form.status} onChange={handleFormChange}>
             <option value="Pending">Pending</option>
@@ -183,11 +180,7 @@ function App() {
             <option value="Urgent">Urgent</option>
           </select>
 
-          <select
-            name="compliance_status"
-            value={form.compliance_status}
-            onChange={handleFormChange}
-          >
+          <select name="compliance_status" value={form.compliance_status} onChange={handleFormChange}>
             <option value="">Missing</option>
             <option value="Complete">Complete</option>
             <option value="Incomplete">Incomplete</option>
@@ -202,19 +195,8 @@ function App() {
         <h2>Search and Filter</h2>
 
         <form onSubmit={handleSearch} className="form">
-          <input
-            name="principal_investigator"
-            placeholder="Search by PI"
-            value={filters.principal_investigator}
-            onChange={handleFilterChange}
-          />
-
-          <input
-            name="funding_agency"
-            placeholder="Search by Funding Agency"
-            value={filters.funding_agency}
-            onChange={handleFilterChange}
-          />
+          <input name="principal_investigator" placeholder="Search by PI" value={filters.principal_investigator} onChange={handleFilterChange} />
+          <input name="funding_agency" placeholder="Search by Funding Agency" value={filters.funding_agency} onChange={handleFilterChange} />
 
           <select name="status" value={filters.status} onChange={handleFilterChange}>
             <option value="">All Statuses</option>
@@ -251,22 +233,51 @@ function App() {
           <tbody>
             {grants.map((grant) => (
               <tr key={grant.id}>
-                <td>{grant.title}</td>
-                <td>{grant.principal_investigator}</td>
-                <td>{grant.funding_agency}</td>
-                <td>${Number(grant.amount).toLocaleString()}</td>
-                <td>{grant.deadline}</td>
-                <td>{grant.status}</td>
-                <td>{grant.compliance_status || "Missing"}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="delete-button"
-                    onClick={() => deleteGrant(grant.id)}
-                  >
-                    Delete
-                  </button>
-                </td>
+                {editingGrantId === grant.id ? (
+                  <>
+                    <td><input name="title" value={editForm.title} onChange={handleEditChange} /></td>
+                    <td><input name="principal_investigator" value={editForm.principal_investigator} onChange={handleEditChange} /></td>
+                    <td><input name="funding_agency" value={editForm.funding_agency} onChange={handleEditChange} /></td>
+                    <td><input name="amount" type="number" value={editForm.amount} onChange={handleEditChange} /></td>
+                    <td><input name="deadline" type="date" value={editForm.deadline} onChange={handleEditChange} /></td>
+                    <td>
+                      <select name="status" value={editForm.status} onChange={handleEditChange}>
+                        <option value="Pending">Pending</option>
+                        <option value="Active">Active</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Urgent">Urgent</option>
+                      </select>
+                    </td>
+                    <td>
+                      <select name="compliance_status" value={editForm.compliance_status} onChange={handleEditChange}>
+                        <option value="">Missing</option>
+                        <option value="Complete">Complete</option>
+                        <option value="Incomplete">Incomplete</option>
+                        <option value="Under Review">Under Review</option>
+                      </select>
+                    </td>
+                    <td>
+                      <button type="button" onClick={() => saveEdit(grant.id)}>Save</button>
+                      <button type="button" className="secondary-button" onClick={cancelEdit}>Cancel</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{grant.title}</td>
+                    <td>{grant.principal_investigator}</td>
+                    <td>{grant.funding_agency}</td>
+                    <td>${Number(grant.amount).toLocaleString()}</td>
+                    <td>{grant.deadline}</td>
+                    <td>{grant.status}</td>
+                    <td>{grant.compliance_status || "Missing"}</td>
+                    <td>
+                      <button type="button" onClick={() => startEdit(grant)}>Edit</button>
+                      <button type="button" className="delete-button" onClick={() => deleteGrant(grant.id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
 

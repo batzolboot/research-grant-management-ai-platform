@@ -6,6 +6,7 @@ from sqlalchemy import func
 from app import models, schemas, crud
 from app.database import engine, get_db
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -13,6 +14,17 @@ app = FastAPI(
     title="Research Grant Management API",
     description="Backend API for managing research grants, documents, deadlines, dashboards, and AI extraction.",
     version="0.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
