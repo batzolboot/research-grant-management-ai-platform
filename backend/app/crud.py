@@ -10,8 +10,30 @@ def create_grant(db: Session, grant: schemas.GrantCreate):
     return db_grant
 
 
-def get_grants(db: Session):
-    return db.query(models.Grant).all()
+def get_grants(
+    db: Session,
+    principal_investigator: str | None = None,
+    funding_agency: str | None = None,
+    status: str | None = None,
+):
+    query = db.query(models.Grant)
+
+    if principal_investigator:
+        query = query.filter(
+            models.Grant.principal_investigator.ilike(f"%{principal_investigator}%")
+        )
+
+    if funding_agency:
+        query = query.filter(
+            models.Grant.funding_agency.ilike(f"%{funding_agency}%")
+        )
+
+    if status:
+        query = query.filter(
+            models.Grant.status.ilike(f"%{status}%")
+        )
+
+    return query.all()
 
 
 def get_grant(db: Session, grant_id: int):

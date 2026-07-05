@@ -2,6 +2,7 @@ from typing import List
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
 from app import models, schemas, crud
 from app.database import engine, get_db
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -31,8 +32,18 @@ def create_grant(grant: schemas.GrantCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/grants", response_model=List[schemas.GrantResponse])
-def get_grants(db: Session = Depends(get_db)):
-    return crud.get_grants(db)
+def get_grants(
+    principal_investigator: str | None = None,
+    funding_agency: str | None = None,
+    status: str | None = None,
+    db: Session = Depends(get_db)
+):
+    return crud.get_grants(
+        db,
+        principal_investigator=principal_investigator,
+        funding_agency=funding_agency,
+        status=status
+    )
 
 
 @app.get("/grants/{grant_id}", response_model=schemas.GrantResponse)
@@ -67,3 +78,28 @@ def delete_grant(grant_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Grant not found")
 
     return {"message": "Grant deleted successfully"}
+
+@app.get("/dashboard/summary")
+def dashboard_summary(db: Session = Depends(get_db)):
+    total_grants = db.query(models.Grant).count()
+
+    total_funding = db.query(func.sum(models.Grant.amount)).scalar() or 0
+
+    active_grants = (
+        db.query(models.Grant)
+        .filter(models.Grant.status.ilike("Active"))
+        .count()
+    )
+
+    missing_compliance = (
+        db.query(models.Grant)
+        .filter(models.Grant.compliance_status == None)
+        .count()
+    )
+
+    return {
+        "total_grants": total_grants,
+        "total_funding": total_funding,
+        "active_grants": active_grants,
+        "missing_compliance": missing_compliance
+    }
