@@ -12,3 +12,4 @@ A full-stack web application for managing research grants using FastAPI, React, 
 - JWT Authentication
 - OpenAI API
 - Power BI
+
