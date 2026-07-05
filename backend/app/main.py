@@ -91,27 +91,27 @@ def delete_grant(grant_id: int, db: Session = Depends(get_db)):
 
     return {"message": "Grant deleted successfully"}
 
-@app.get("/dashboard/summary")
-def dashboard_summary(db: Session = Depends(get_db)):
-    total_grants = db.query(models.Grant).count()
-
-    total_funding = db.query(func.sum(models.Grant.amount)).scalar() or 0
-
-    active_grants = (
-        db.query(models.Grant)
-        .filter(models.Grant.status.ilike("Active"))
-        .count()
+@app.get("/dashboard/charts")
+def dashboard_charts(db: Session = Depends(get_db)):
+    grants_by_status = (
+        db.query(models.Grant.status, func.count(models.Grant.id))
+        .group_by(models.Grant.status)
+        .all()
     )
 
-    missing_compliance = (
-        db.query(models.Grant)
-        .filter(models.Grant.compliance_status == None)
-        .count()
+    funding_by_agency = (
+        db.query(models.Grant.funding_agency, func.sum(models.Grant.amount))
+        .group_by(models.Grant.funding_agency)
+        .all()
     )
 
     return {
-        "total_grants": total_grants,
-        "total_funding": total_funding,
-        "active_grants": active_grants,
-        "missing_compliance": missing_compliance
+        "grants_by_status": [
+            {"status": status, "count": count}
+            for status, count in grants_by_status
+        ],
+        "funding_by_agency": [
+            {"agency": agency, "funding": float(funding)}
+            for agency, funding in funding_by_agency
+        ],
     }

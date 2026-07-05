@@ -1,12 +1,29 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import "./App.css";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 function App() {
   const [grants, setGrants] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [chartData, setChartData] = useState(null);
   const [editingGrantId, setEditingGrantId] = useState(null);
   const [editForm, setEditForm] = useState({});
+
+  const fetchChartData = async () => {
+    const response = await api.get("/dashboard/charts");
+    setChartData(response.data);
+  };
 
   const [filters, setFilters] = useState({
     principal_investigator: "",
@@ -44,6 +61,7 @@ function App() {
   useEffect(() => {
     fetchGrants();
     fetchSummary();
+    fetchChartData();
   }, []);
 
   const handleFormChange = (e) => {
@@ -87,6 +105,7 @@ function App() {
     setEditForm({});
     fetchGrants();
     fetchSummary();
+    fetchChartData();
   };
 
   const handleCreateGrant = async (e) => {
@@ -110,6 +129,7 @@ function App() {
 
     fetchGrants();
     fetchSummary();
+    fetchChartData();
   };
 
   const handleSearch = (e) => {
@@ -133,6 +153,7 @@ function App() {
     await api.delete(`/grants/${id}`);
     fetchGrants();
     fetchSummary();
+    fetchChartData();
   };
 
   return (
@@ -160,6 +181,49 @@ function App() {
             <p>Missing Compliance</p>
             <h2>{summary.missing_compliance}</h2>
           </div>
+        </section>
+      )}
+
+      {chartData && (
+        <section className="charts-grid">
+
+          <div className="card">
+            <h2>Grants by Status</h2>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={chartData.grants_by_status}
+                  dataKey="count"
+                  nameKey="status"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {chartData.grants_by_status.map((entry, index) => (
+                    <Cell key={index} />
+                  ))}
+                </Pie>
+
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="card">
+            <h2>Funding by Agency</h2>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData.funding_by_agency}>
+                <XAxis dataKey="agency" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="funding" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
         </section>
       )}
 
