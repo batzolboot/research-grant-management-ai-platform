@@ -166,3 +166,30 @@ th {
   text-align: center;
   font-size: 18px;
 }
+
+.upload-message {
+  margin-top: 12px;
+  font-weight: bold;
+}
+
+.document-link {
+  background: none;
+  color: #2563eb;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.document-link:hover {
+  color: #1d4ed8;
+}
+
+.text-preview {
+  max-height: 400px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: #f8fafc;
+  padding: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  line-height: 1.5;
+}

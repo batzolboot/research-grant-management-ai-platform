@@ -18,12 +18,23 @@ function Dashboard({ user }) {
   const [grants, setGrants] = useState([]);
   const [summary, setSummary] = useState(null);
   const [chartData, setChartData] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [selectedGrantId, setSelectedGrantId] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [extractedDocument, setExtractedDocument] = useState(null);
+  const [extractionMessage, setExtractionMessage] = useState("");
   const [editingGrantId, setEditingGrantId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
   const fetchChartData = async () => {
     const response = await api.get("/dashboard/charts");
     setChartData(response.data);
+  };
+
+  const fetchDocuments = async () => {
+    const response = await api.get("/documents");
+    setDocuments(response.data);
   };
 
   const [filters, setFilters] = useState({
@@ -63,6 +74,7 @@ function Dashboard({ user }) {
     fetchGrants();
     fetchSummary();
     fetchChartData();
+    fetchDocuments();
   }, []);
 
   const handleFormChange = (e) => {
@@ -132,6 +144,53 @@ function Dashboard({ user }) {
     fetchSummary();
     fetchChartData();
   };
+
+  const handleExtractText = async (documentId) => {
+    setExtractionMessage("Extracting text...");
+
+    try {
+      const response = await api.get(
+        `/documents/${documentId}/extract`
+      );
+
+      setExtractedDocument(response.data);
+      setExtractionMessage("");
+    } catch (error) {
+      setExtractedDocument(null);
+      setExtractionMessage(
+        error.response?.data?.detail || "Text extraction failed."
+      );
+    }
+  };
+
+  const handleDocumentUpload = async (e) => {
+    e.preventDefault();
+    setUploadMessage("");
+
+    if (!selectedGrantId || !selectedFile) {
+      setUploadMessage("Choose a grant and a file.");
+      return;
+  }
+
+  const formData = new FormData();
+  formData.append("grant_id", selectedGrantId);
+  formData.append("file", selectedFile);
+
+  try {
+    await api.post("/documents/upload", formData);
+
+    setSelectedGrantId("");
+    setSelectedFile(null);
+    setUploadMessage("Document uploaded successfully.");
+
+    e.target.reset();
+    fetchDocuments();
+  } catch (error) {
+    setUploadMessage(
+      error.response?.data?.detail || "Document upload failed."
+    );
+  }
+};
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -257,6 +316,43 @@ function Dashboard({ user }) {
         </section>
       )}
 
+      {isAdmin && (
+        <section className="card">
+          <h2>Upload Grant Document</h2>
+
+          <form onSubmit={handleDocumentUpload} className="form">
+            <select
+              value={selectedGrantId}
+              onChange={(e) => setSelectedGrantId(e.target.value)}
+              required
+            >
+              <option value="">Select a grant</option>
+
+              {grants.map((grant) => (
+                <option key={grant.id} value={grant.id}>
+                  ID {grant.id} — {grant.title}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="file"
+              accept=".pdf,.csv,.xlsx,.xls"
+              onChange={(e) => setSelectedFile(e.target.files[0])}
+              required
+            />
+
+            <button type="submit">
+              Upload Document
+            </button>
+          </form>
+
+          {uploadMessage && (
+            <p className="upload-message">{uploadMessage}</p>
+          )}
+        </section>
+      )}
+
       <section className="card">
         <h2>Search and Filter</h2>
 
@@ -373,6 +469,110 @@ function Dashboard({ user }) {
             )}
           </tbody>
         </table>
+      </section>
+
+      <section className="card">
+        <h2>Recent Documents</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Filename</th>
+              <th>Grant ID</th>
+              <th>File Type</th>
+              <th>Uploaded By</th>
+              <th>Uploaded At</th>
+              <th>Text</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {documents.map((uploadedDocument) => (
+              <tr key={uploadedDocument.id}>
+                <td>{uploadedDocument.id}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="document-link"
+                    onClick={async () => {
+                      const response = await api.get(
+                        `/documents/${uploadedDocument.id}/file`,
+                        {
+                          responseType: "blob",
+                        }
+                      );
+
+                      const fileUrl = window.URL.createObjectURL(
+                        new Blob([response.data])
+                      );
+
+                      const link = window.document.createElement("a");
+                      link.href = fileUrl;
+                      link.download = uploadedDocument.original_filename;
+
+                      window.document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+
+                      window.URL.revokeObjectURL(fileUrl);
+                    }}
+                  >
+                    {uploadedDocument.original_filename}
+                  </button>
+                </td>
+                <td>{uploadedDocument.grant_id}</td>
+                <td>{uploadedDocument.file_type}</td>
+                <td>{uploadedDocument.uploaded_by}</td>
+                <td>
+                  {new Date(uploadedDocument.uploaded_at).toLocaleString()}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => handleExtractText(uploadedDocument.id)}
+                  >
+                    Extract Text
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {documents.length === 0 && (
+              <tr>
+                <td colSpan="7">No documents uploaded.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="card">
+        <h2>Extracted Text Preview</h2>
+
+        {extractionMessage && (
+          <p>{extractionMessage}</p>
+        )}
+
+        {extractedDocument ? (
+          <>
+            <p>
+              <strong>Filename:</strong>{" "}
+              {extractedDocument.filename}
+            </p>
+
+            <p>
+              <strong>Characters:</strong>{" "}
+              {extractedDocument.character_count}
+            </p>
+
+            <pre className="text-preview">
+              {extractedDocument.text}
+            </pre>
+          </>
+        ) : (
+          <p>Select “Extract Text” beside a document.</p>
+        )}
       </section>
     </div>
   );

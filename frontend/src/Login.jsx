@@ -24,10 +24,19 @@ function Login({ onLogin }) {
     setIsLoading(true);
 
     try {
-      const response = await api.post("/auth/login", {
-        email: form.email,
-        password: form.password,
-      });
+      const loginData = new URLSearchParams();
+      loginData.append("username", form.email);
+      loginData.append("password", form.password);
+
+      const response = await api.post(
+        "/auth/login",
+        loginData,
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
+      );
 
       onLogin(response.data.access_token);
     } catch (error) {

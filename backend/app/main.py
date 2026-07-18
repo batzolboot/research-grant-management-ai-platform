@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import List
 from uuid import uuid4
 
+import csv
+
 from fastapi import (
     Depends,
     FastAPI,
@@ -13,6 +15,11 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
+
+import pandas as pd
+from pypdf import PdfReader
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,6 +34,47 @@ UPLOAD_DIRECTORY.mkdir(exist_ok=True)
 
 ALLOWED_FILE_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls"}
 MAX_FILE_SIZE = 10 * 1024 * 1024
+
+def extract_document_text(file_path: Path) -> str:
+    extension = file_path.suffix.lower()
+
+    if extension == ".pdf":
+        reader = PdfReader(str(file_path))
+
+        pages = []
+
+        for page in reader.pages:
+            page_text = page.extract_text()
+
+            if page_text:
+                pages.append(page_text)
+
+        return "\n\n".join(pages)
+
+    if extension == ".csv":
+        rows = []
+
+        with file_path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as csv_file:
+            reader = csv.reader(csv_file)
+
+            for row in reader:
+                rows.append(" | ".join(row))
+
+        return "\n".join(rows)
+
+    if extension in {".xlsx", ".xls"}:
+        spreadsheet = pd.read_excel(file_path)
+
+        return spreadsheet.to_csv(
+            index=False,
+            sep=" | ",
+        )
+
+    raise ValueError("Unsupported file type")
 
 
 app = FastAPI(
@@ -346,3 +394,82 @@ def list_documents(
     current_user=Depends(auth.get_current_user),
 ):
     return crud.get_documents(db)
+
+@app.get("/documents/{document_id}/file")
+def get_document_file(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    document = (
+        db.query(models.Document)
+        .filter(models.Document.id == document_id)
+        .first()
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    file_path = Path(document.file_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored file not found",
+        )
+
+    return FileResponse(
+        path=file_path,
+        filename=document.original_filename,
+        media_type=document.file_type,
+    )
+
+@app.get("/documents/{document_id}/extract")
+def extract_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    uploaded_document = (
+        db.query(models.Document)
+        .filter(models.Document.id == document_id)
+        .first()
+    )
+
+    if not uploaded_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    file_path = Path(uploaded_document.file_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored file not found",
+        )
+
+    try:
+        extracted_text = extract_document_text(file_path)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not extract text from document",
+        )
+
+    if not extracted_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No readable text was found",
+        )
+
+    return {
+        "document_id": uploaded_document.id,
+        "filename": uploaded_document.original_filename,
+        "character_count": len(extracted_text),
+        "text": extracted_text,
+    }
