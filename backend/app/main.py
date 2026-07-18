@@ -3,6 +3,7 @@ from typing import List
 from uuid import uuid4
 
 import csv
+import os
 
 from fastapi import (
     Depends,
@@ -20,6 +21,8 @@ from fastapi.responses import FileResponse
 import pandas as pd
 from pypdf import PdfReader
 
+from openai import OpenAI
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -34,6 +37,7 @@ UPLOAD_DIRECTORY.mkdir(exist_ok=True)
 
 ALLOWED_FILE_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls"}
 MAX_FILE_SIZE = 10 * 1024 * 1024
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6")
 
 def extract_document_text(file_path: Path) -> str:
     extension = file_path.suffix.lower()
@@ -473,3 +477,97 @@ def extract_document(
         "character_count": len(extracted_text),
         "text": extracted_text,
     }
+
+@app.post(
+    "/documents/{document_id}/ai-extract",
+    response_model=schemas.AIGrantExtraction,
+)
+def ai_extract_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.require_admin),
+):
+    uploaded_document = (
+        db.query(models.Document)
+        .filter(models.Document.id == document_id)
+        .first()
+    )
+
+    if not uploaded_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    file_path = Path(uploaded_document.file_path)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored file not found",
+        )
+
+    try:
+        extracted_text = extract_document_text(file_path)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not extract text from document",
+        )
+
+    if not extracted_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No readable text was found",
+        )
+
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENAI_API_KEY is not configured",
+        )
+
+    try:
+        client = OpenAI()
+
+        response = client.responses.parse(
+            model=OPENAI_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Extract research grant information from the supplied "
+                        "document text. Do not invent missing information. "
+                        "Return null for fields that cannot be found. "
+                        "Convert monetary amounts into plain numeric values. "
+                        "Convert dates into YYYY-MM-DD format. "
+                        "Keep the summary under 100 words."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": extracted_text[:50000],
+                },
+            ],
+            text_format=schemas.AIGrantExtraction,
+        )
+
+        result = response.output_parsed
+
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="The AI did not return structured grant data",
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(f"OpenAI extraction error: {error}")
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI document extraction failed",
+        )

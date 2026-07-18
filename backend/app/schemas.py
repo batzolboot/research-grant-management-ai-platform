@@ -69,3 +69,13 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AIGrantExtraction(BaseModel):
+    title: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    funding_agency: Optional[str] = None
+    amount: Optional[float] = None
+    deadline: Optional[date] = None
+    status: Optional[str] = None
+    compliance_status: Optional[str] = None
+    summary: Optional[str] = None

@@ -193,3 +193,11 @@ th {
   border-radius: 8px;
   line-height: 1.5;
 }
+
+textarea {
+  min-height: 120px;
+  padding: 10px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  resize: vertical;
+}

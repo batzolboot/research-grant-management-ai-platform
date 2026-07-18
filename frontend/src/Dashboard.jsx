@@ -23,6 +23,8 @@ function Dashboard({ user }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
   const [extractedDocument, setExtractedDocument] = useState(null);
+  const [aiResult, setAiResult] = useState(null);
+  const [aiMessage, setAiMessage] = useState("");
   const [extractionMessage, setExtractionMessage] = useState("");
   const [editingGrantId, setEditingGrantId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -143,6 +145,24 @@ function Dashboard({ user }) {
     fetchGrants();
     fetchSummary();
     fetchChartData();
+  };
+
+  const handleAiExtract = async (documentId) => {
+    setAiMessage("AI is extracting grant fields...");
+    setAiResult(null);
+
+    try {
+      const response = await api.post(
+        `/documents/${documentId}/ai-extract`
+      );
+
+      setAiResult(response.data);
+      setAiMessage("");
+    } catch (error) {
+      setAiMessage(
+        error.response?.data?.detail || "AI extraction failed."
+      );
+    }
   };
 
   const handleExtractText = async (documentId) => {
@@ -484,6 +504,7 @@ function Dashboard({ user }) {
               <th>Uploaded By</th>
               <th>Uploaded At</th>
               <th>Text</th>
+              <th>AI</th>
             </tr>
           </thead>
 
@@ -535,12 +556,24 @@ function Dashboard({ user }) {
                     Extract Text
                   </button>
                 </td>
+                <td>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => handleAiExtract(uploadedDocument.id)}
+                    >
+                      AI Extract
+                    </button>
+                  ) : (
+                    <span>Admin only</span>
+                  )}
+                </td>
               </tr>
             ))}
 
             {documents.length === 0 && (
               <tr>
-                <td colSpan="7">No documents uploaded.</td>
+                <td colSpan="8">No documents uploaded.</td>
               </tr>
             )}
           </tbody>
@@ -572,6 +605,147 @@ function Dashboard({ user }) {
           </>
         ) : (
           <p>Select “Extract Text” beside a document.</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>AI Extraction Review</h2>
+
+        {aiMessage && <p>{aiMessage}</p>}
+
+        {aiResult ? (
+          <div className="form">
+            <input
+              name="title"
+              placeholder="Grant Title"
+              value={aiResult.title || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  title: e.target.value,
+                })
+              }
+            />
+
+            <input
+              name="principal_investigator"
+              placeholder="Principal Investigator"
+              value={aiResult.principal_investigator || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  principal_investigator: e.target.value,
+                })
+              }
+            />
+
+            <input
+              name="funding_agency"
+              placeholder="Funding Agency"
+              value={aiResult.funding_agency || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  funding_agency: e.target.value,
+                })
+              }
+            />
+
+            <input
+              name="amount"
+              type="number"
+              placeholder="Amount"
+              value={aiResult.amount || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  amount: e.target.value,
+                })
+              }
+            />
+
+            <input
+              name="deadline"
+              type="date"
+              value={aiResult.deadline || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  deadline: e.target.value,
+                })
+              }
+            />
+
+            <select
+              name="status"
+              value={aiResult.status || "Pending"}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  status: e.target.value,
+                })
+              }
+            >
+              <option value="Pending">Pending</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+
+            <select
+              name="compliance_status"
+              value={aiResult.compliance_status || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  compliance_status: e.target.value,
+                })
+              }
+            >
+              <option value="">Missing</option>
+              <option value="Complete">Complete</option>
+              <option value="Incomplete">Incomplete</option>
+              <option value="Under Review">Under Review</option>
+            </select>
+
+            <textarea
+              name="summary"
+              placeholder="Summary"
+              value={aiResult.summary || ""}
+              onChange={(e) =>
+                setAiResult({
+                  ...aiResult,
+                  summary: e.target.value,
+                })
+              }
+            />
+
+            <button
+              type="button"
+              onClick={() => {
+                setForm({
+                  title: aiResult.title || "",
+                  principal_investigator:
+                    aiResult.principal_investigator || "",
+                  funding_agency: aiResult.funding_agency || "",
+                  amount: aiResult.amount || "",
+                  deadline: aiResult.deadline || "",
+                  status: aiResult.status || "Pending",
+                  compliance_status:
+                    aiResult.compliance_status || "",
+                });
+
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Use These Fields
+            </button>
+          </div>
+        ) : (
+          <p>Select “AI Extract” beside a document.</p>
         )}
       </section>
     </div>
