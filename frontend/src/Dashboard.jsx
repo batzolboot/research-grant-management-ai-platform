@@ -13,7 +13,8 @@ import {
   Cell,
 } from "recharts";
 
-function Dashboard() {
+function Dashboard({ user }) {
+  const isAdmin = user.role === "Admin";
   const [grants, setGrants] = useState([]);
   const [summary, setSummary] = useState(null);
   const [chartData, setChartData] = useState(null);
@@ -226,34 +227,35 @@ function Dashboard() {
 
         </section>
       )}
+      {isAdmin && (
+        <section className="card">
+          <h2>Create Grant</h2>
 
-      <section className="card">
-        <h2>Create Grant</h2>
+          <form onSubmit={handleCreateGrant} className="form">
+            <input name="title" placeholder="Grant Title" value={form.title} onChange={handleFormChange} required />
+            <input name="principal_investigator" placeholder="Principal Investigator" value={form.principal_investigator} onChange={handleFormChange} required />
+            <input name="funding_agency" placeholder="Funding Agency" value={form.funding_agency} onChange={handleFormChange} required />
+            <input name="amount" placeholder="Amount" type="number" value={form.amount} onChange={handleFormChange} required />
+            <input name="deadline" type="date" value={form.deadline} onChange={handleFormChange} required />
 
-        <form onSubmit={handleCreateGrant} className="form">
-          <input name="title" placeholder="Grant Title" value={form.title} onChange={handleFormChange} required />
-          <input name="principal_investigator" placeholder="Principal Investigator" value={form.principal_investigator} onChange={handleFormChange} required />
-          <input name="funding_agency" placeholder="Funding Agency" value={form.funding_agency} onChange={handleFormChange} required />
-          <input name="amount" placeholder="Amount" type="number" value={form.amount} onChange={handleFormChange} required />
-          <input name="deadline" type="date" value={form.deadline} onChange={handleFormChange} required />
+            <select name="status" value={form.status} onChange={handleFormChange}>
+              <option value="Pending">Pending</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Urgent">Urgent</option>
+            </select>
 
-          <select name="status" value={form.status} onChange={handleFormChange}>
-            <option value="Pending">Pending</option>
-            <option value="Active">Active</option>
-            <option value="Completed">Completed</option>
-            <option value="Urgent">Urgent</option>
-          </select>
+            <select name="compliance_status" value={form.compliance_status} onChange={handleFormChange}>
+              <option value="">Missing</option>
+              <option value="Complete">Complete</option>
+              <option value="Incomplete">Incomplete</option>
+              <option value="Under Review">Under Review</option>
+            </select>
 
-          <select name="compliance_status" value={form.compliance_status} onChange={handleFormChange}>
-            <option value="">Missing</option>
-            <option value="Complete">Complete</option>
-            <option value="Incomplete">Incomplete</option>
-            <option value="Under Review">Under Review</option>
-          </select>
-
-          <button type="submit">Add Grant</button>
-        </form>
-      </section>
+            <button type="submit">Add Grant</button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>Search and Filter</h2>
@@ -283,6 +285,7 @@ function Dashboard() {
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Title</th>
               <th>PI</th>
               <th>Agency</th>
@@ -299,6 +302,7 @@ function Dashboard() {
               <tr key={grant.id}>
                 {editingGrantId === grant.id ? (
                   <>
+                    <td>{grant.id}</td>
                     <td><input name="title" value={editForm.title} onChange={handleEditChange} /></td>
                     <td><input name="principal_investigator" value={editForm.principal_investigator} onChange={handleEditChange} /></td>
                     <td><input name="funding_agency" value={editForm.funding_agency} onChange={handleEditChange} /></td>
@@ -327,6 +331,7 @@ function Dashboard() {
                   </>
                 ) : (
                   <>
+                    <td>{grant.id}</td>
                     <td>{grant.title}</td>
                     <td>{grant.principal_investigator}</td>
                     <td>{grant.funding_agency}</td>
@@ -335,10 +340,26 @@ function Dashboard() {
                     <td>{grant.status}</td>
                     <td>{grant.compliance_status || "Missing"}</td>
                     <td>
-                      <button type="button" onClick={() => startEdit(grant)}>Edit</button>
-                      <button type="button" className="delete-button" onClick={() => deleteGrant(grant.id)}>
-                        Delete
-                      </button>
+                      {isAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(grant)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() => deleteGrant(grant.id)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <span>View only</span>
+                      )}
                     </td>
                   </>
                 )}
@@ -347,7 +368,7 @@ function Dashboard() {
 
             {grants.length === 0 && (
               <tr>
-                <td colSpan="8">No grants found.</td>
+                <td colSpan="9">No grants found.</td>
               </tr>
             )}
           </tbody>

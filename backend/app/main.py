@@ -1,7 +1,18 @@
+from pathlib import Path
 from typing import List
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,6 +21,12 @@ from app.database import engine, get_db
 
 
 models.Base.metadata.create_all(bind=engine)
+
+UPLOAD_DIRECTORY = Path("uploads")
+UPLOAD_DIRECTORY.mkdir(exist_ok=True)
+
+ALLOWED_FILE_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls"}
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 app = FastAPI(
@@ -73,10 +90,10 @@ def register_user(
 
 @app.post("/auth/login", response_model=schemas.TokenResponse)
 def login_user(
-    user: schemas.UserLogin,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    db_user = crud.get_user_by_email(db, user.email)
+    db_user = crud.get_user_by_email(db, form_data.username)
 
     if not db_user:
         raise HTTPException(
@@ -84,7 +101,10 @@ def login_user(
             detail="Invalid email or password",
         )
 
-    if not auth.verify_password(user.password, db_user.hashed_password):
+    if not auth.verify_password(
+        form_data.password,
+        db_user.hashed_password,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -102,6 +122,11 @@ def login_user(
         "token_type": "bearer",
     }
 
+@app.get("/auth/me", response_model=schemas.UserResponse)
+def get_logged_in_user(
+    current_user=Depends(auth.get_current_user),
+):
+    return current_user
 
 @app.post(
     "/grants",
@@ -254,3 +279,70 @@ def dashboard_charts(
             for agency, funding in funding_by_agency
         ],
     }
+
+@app.post(
+    "/documents/upload",
+    response_model=schemas.DocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_document(
+    grant_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.require_admin),
+):
+    grant = crud.get_grant(db, grant_id)
+
+    if not grant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Grant not found",
+        )
+
+    original_filename = file.filename or "uploaded_file"
+    file_extension = Path(original_filename).suffix.lower()
+
+    if file_extension not in ALLOWED_FILE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF, CSV, XLS, and XLSX files are allowed",
+        )
+
+    file_contents = await file.read()
+
+    if len(file_contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File must be 10 MB or smaller",
+        )
+
+    stored_filename = f"{uuid4()}{file_extension}"
+    file_path = UPLOAD_DIRECTORY / stored_filename
+
+    try:
+        file_path.write_bytes(file_contents)
+    except OSError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not save uploaded file",
+        )
+
+    return crud.create_document(
+        db=db,
+        original_filename=original_filename,
+        stored_filename=stored_filename,
+        file_type=file.content_type or "application/octet-stream",
+        file_path=str(file_path),
+        grant_id=grant_id,
+        uploaded_by=current_user.id,
+    )
+
+@app.get(
+    "/documents",
+    response_model=List[schemas.DocumentResponse],
+)
+def list_documents(
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    return crud.get_documents(db)

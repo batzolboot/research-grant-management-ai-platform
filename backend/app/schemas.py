@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel
@@ -57,3 +57,15 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+class DocumentResponse(BaseModel):
+    id: int
+    original_filename: str
+    stored_filename: str
+    file_type: str
+    grant_id: int
+    uploaded_by: int
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True

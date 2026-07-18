@@ -82,3 +82,35 @@ def create_user(db: Session, email: str, hashed_password: str, role: str):
     db.refresh(user)
 
     return user
+
+def create_document(
+    db: Session,
+    original_filename: str,
+    stored_filename: str,
+    file_type: str,
+    file_path: str,
+    grant_id: int,
+    uploaded_by: int,
+):
+    document = models.Document(
+        original_filename=original_filename,
+        stored_filename=stored_filename,
+        file_type=file_type,
+        file_path=file_path,
+        grant_id=grant_id,
+        uploaded_by=uploaded_by,
+    )
+
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    return document
+
+
+def get_documents(db: Session):
+    return (
+        db.query(models.Document)
+        .order_by(models.Document.uploaded_at.desc())
+        .all()
+    )

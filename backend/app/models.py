@@ -11,6 +11,21 @@ class User(Base):
     role = Column(String, nullable=False, default="Viewer")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    original_filename = Column(String, nullable=False)
+    stored_filename = Column(String, nullable=False, unique=True)
+    file_type = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    grant_id = Column(Integer, nullable=False)
+    uploaded_by = Column(Integer, nullable=False)
+    uploaded_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
 class Grant(Base):
     __tablename__ = "grants"
 
