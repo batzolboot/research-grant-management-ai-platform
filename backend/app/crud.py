@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app import models, schemas
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 
 def create_grant(db: Session, grant: schemas.GrantCreate):
@@ -166,3 +166,77 @@ def get_audit_logs(db: Session):
         .order_by(models.AuditLog.created_at.desc())
         .all()
     )
+
+def create_task(
+    db: Session,
+    grant_id: int,
+    title: str,
+    description: str | None,
+    priority: str,
+    created_by: int,
+):
+    task = models.Task(
+        grant_id=grant_id,
+        title=title,
+        description=description,
+        priority=priority,
+        status="Open",
+        created_by=created_by,
+    )
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    return task
+
+
+def get_tasks(db: Session):
+    return (
+        db.query(models.Task)
+        .order_by(models.Task.created_at.desc())
+        .all()
+    )
+
+
+def get_open_compliance_task(db: Session, grant_id: int):
+    return (
+        db.query(models.Task)
+        .filter(
+            models.Task.grant_id == grant_id,
+            models.Task.title == "Review missing compliance",
+            models.Task.status == "Open",
+        )
+        .first()
+    )
+
+
+def update_task(
+    db: Session,
+    task_id: int,
+    task_update: schemas.TaskUpdate,
+):
+    task = (
+        db.query(models.Task)
+        .filter(models.Task.id == task_id)
+        .first()
+    )
+
+    if not task:
+        return None
+
+    update_data = task_update.model_dump(exclude_unset=True)
+
+    for key, value in update_data.items():
+        setattr(task, key, value)
+
+    if task_update.status == "Completed":
+        task.completed_at = datetime.now(timezone.utc)
+
+    if task_update.status == "Open":
+        task.completed_at = None
+
+    db.commit()
+    db.refresh(task)
+
+    return task

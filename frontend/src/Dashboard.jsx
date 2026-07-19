@@ -20,6 +20,7 @@ function Dashboard({ user }) {
   const [chartData, setChartData] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [selectedGrantId, setSelectedGrantId] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -38,6 +39,11 @@ function Dashboard({ user }) {
   const fetchDocuments = async () => {
     const response = await api.get("/documents");
     setDocuments(response.data);
+  };
+
+  const fetchTasks = async () => {
+    const response = await api.get("/tasks");
+    setTasks(response.data);
   };
 
   const fetchAuditLogs = async () => {
@@ -87,6 +93,7 @@ function Dashboard({ user }) {
     fetchSummary();
     fetchChartData();
     fetchDocuments();
+    fetchTasks();
 
     if (isAdmin) {
       fetchAuditLogs();
@@ -258,6 +265,18 @@ function Dashboard({ user }) {
         error.response?.data?.detail ||
           "Report download failed."
       );
+    }
+  };
+
+  const updateTaskStatus = async (taskId, newStatus) => {
+    await api.put(`/tasks/${taskId}`, {
+      status: newStatus,
+    });
+
+    fetchTasks();
+
+    if (isAdmin) {
+      fetchAuditLogs();
     }
   };
 
@@ -858,6 +877,73 @@ function Dashboard({ user }) {
           </table>
         </section>
       )}
+
+      <section className="card">
+        <h2>Tasks</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Grant ID</th>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {tasks.map((task) => (
+              <tr key={task.id}>
+                <td>{task.id}</td>
+                <td>{task.grant_id}</td>
+                <td>{task.title}</td>
+                <td>{task.description || "-"}</td>
+                <td>{task.priority}</td>
+                <td>{task.status}</td>
+                <td>
+                  {new Date(task.created_at).toLocaleString()}
+                </td>
+                <td>
+                  {isAdmin ? (
+                    task.status === "Open" ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateTaskStatus(task.id, "Completed")
+                        }
+                      >
+                        Mark Completed
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          updateTaskStatus(task.id, "Open")
+                        }
+                      >
+                        Reopen
+                      </button>
+                    )
+                  ) : (
+                    <span>View only</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+
+            {tasks.length === 0 && (
+              <tr>
+                <td colSpan="8">No tasks found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }

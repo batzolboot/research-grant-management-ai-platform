@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel
 
 
@@ -91,3 +91,22 @@ class AuditLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class TaskResponse(BaseModel):
+    id: int
+    grant_id: int
+    title: str
+    description: Optional[str] = None
+    priority: str
+    status: str
+    created_by: int
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TaskUpdate(BaseModel):
+    status: Optional[Literal["Open", "Completed"]] = None
+    priority: Optional[Literal["Low", "Medium", "High"]] = None

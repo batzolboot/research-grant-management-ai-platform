@@ -11,6 +11,22 @@ class User(Base):
     role = Column(String, nullable=False, default="Viewer")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    grant_id = Column(Integer, nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    priority = Column(String, nullable=False, default="Medium")
+    status = Column(String, nullable=False, default="Open")
+    created_by = Column(Integer, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

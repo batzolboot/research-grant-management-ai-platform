@@ -204,6 +204,18 @@ def create_grant(
         details=f"Created grant: {created_grant.title}",
     )
 
+    if not created_grant.compliance_status:
+        crud.create_task(
+            db=db,
+            grant_id=created_grant.id,
+            title="Review missing compliance",
+            description=(
+                f"Grant '{created_grant.title}' has no compliance status."
+            ),
+            priority="High",
+            created_by=current_user.id,
+        )
+
     return created_grant
 
 
@@ -726,3 +738,47 @@ def list_audit_logs(
     current_user=Depends(auth.require_admin),
 ):
     return crud.get_audit_logs(db)
+
+@app.get(
+    "/tasks",
+    response_model=List[schemas.TaskResponse],
+)
+def list_tasks(
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    return crud.get_tasks(db)
+
+
+@app.put(
+    "/tasks/{task_id}",
+    response_model=schemas.TaskResponse,
+)
+def update_task(
+    task_id: int,
+    task_update: schemas.TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.require_admin),
+):
+    task = crud.update_task(
+        db,
+        task_id,
+        task_update,
+    )
+
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
+
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="UPDATE",
+        resource_type="Task",
+        resource_id=task.id,
+        details=f"Updated task: {task.title}",
+    )
+
+    return task
