@@ -36,3 +36,6 @@ htmlcov/
 
 # Environment variables
 .env.*
+
+backend/test_grants.db
+test_grants.db
