@@ -5,6 +5,8 @@ from uuid import uuid4
 import csv
 import os
 
+from io import BytesIO, StringIO
+
 from fastapi import (
     Depends,
     FastAPI,
@@ -16,7 +18,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 import pandas as pd
 from pypdf import PdfReader
@@ -185,12 +187,24 @@ def get_logged_in_user(
     response_model=schemas.GrantResponse,
     status_code=status.HTTP_201_CREATED,
 )
+
 def create_grant(
     grant: schemas.GrantCreate,
     db: Session = Depends(get_db),
     current_user=Depends(auth.require_admin),
 ):
-    return crud.create_grant(db, grant)
+    created_grant = crud.create_grant(db, grant)
+
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="CREATE",
+        resource_type="Grant",
+        resource_id=created_grant.id,
+        details=f"Created grant: {created_grant.title}",
+    )
+
+    return created_grant
 
 
 @app.get("/grants", response_model=List[schemas.GrantResponse])
@@ -241,6 +255,15 @@ def update_grant(
             detail="Grant not found",
         )
 
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="UPDATE",
+        resource_type="Grant",
+        resource_id=grant.id,
+        details=f"Updated grant: {grant.title}",
+    )
+
     return grant
 
 
@@ -250,13 +273,26 @@ def delete_grant(
     db: Session = Depends(get_db),
     current_user=Depends(auth.require_admin),
 ):
-    grant = crud.delete_grant(db, grant_id)
+    grant = crud.get_grant(db, grant_id)
 
     if not grant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Grant not found",
         )
+
+    grant_title = grant.title
+
+    crud.delete_grant(db, grant_id)
+
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="DELETE",
+        resource_type="Grant",
+        resource_id=grant_id,
+        details=f"Deleted grant: {grant_title}",
+    )
 
     return {"message": "Grant deleted successfully"}
 
@@ -571,3 +607,122 @@ def ai_extract_document(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI document extraction failed",
         )
+    
+@app.get("/reports/grants.csv")
+def export_grants_csv(
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    grants = db.query(models.Grant).order_by(models.Grant.id).all()
+
+    csv_buffer = StringIO()
+    writer = csv.writer(csv_buffer)
+
+    writer.writerow([
+        "ID",
+        "Title",
+        "Principal Investigator",
+        "Funding Agency",
+        "Amount",
+        "Deadline",
+        "Status",
+        "Compliance Status",
+        "Created At",
+        "Updated At",
+    ])
+
+    for grant in grants:
+        writer.writerow([
+            grant.id,
+            grant.title,
+            grant.principal_investigator,
+            grant.funding_agency,
+            grant.amount,
+            grant.deadline,
+            grant.status,
+            grant.compliance_status or "",
+            grant.created_at,
+            grant.updated_at or "",
+        ])
+
+    csv_buffer.seek(0)
+
+    return StreamingResponse(
+        iter([csv_buffer.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="grant_report.csv"'
+            )
+        },
+    )
+
+@app.get("/reports/grants.xlsx")
+def export_grants_excel(
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.get_current_user),
+):
+    grants = db.query(models.Grant).order_by(models.Grant.id).all()
+
+    report_rows = [
+        {
+            "ID": grant.id,
+            "Title": grant.title,
+            "Principal Investigator": grant.principal_investigator,
+            "Funding Agency": grant.funding_agency,
+            "Amount": float(grant.amount),
+            "Deadline": grant.deadline,
+            "Status": grant.status,
+            "Compliance Status": grant.compliance_status or "",
+            "Created At": (
+                grant.created_at.replace(tzinfo=None)
+                if grant.created_at
+                else None
+            ),
+            "Updated At": (
+                grant.updated_at.replace(tzinfo=None)
+                if grant.updated_at
+                else None
+            ),
+        }
+        for grant in grants
+    ]
+
+    spreadsheet = pd.DataFrame(report_rows)
+
+    excel_buffer = BytesIO()
+
+    with pd.ExcelWriter(
+        excel_buffer,
+        engine="openpyxl",
+    ) as writer:
+        spreadsheet.to_excel(
+            writer,
+            index=False,
+            sheet_name="Grants",
+        )
+
+    excel_buffer.seek(0)
+
+    return StreamingResponse(
+        excel_buffer,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="grant_report.xlsx"'
+            )
+        },
+    )
+
+@app.get(
+    "/audit-logs",
+    response_model=List[schemas.AuditLogResponse],
+)
+def list_audit_logs(
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.require_admin),
+):
+    return crud.get_audit_logs(db)

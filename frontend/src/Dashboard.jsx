@@ -19,6 +19,7 @@ function Dashboard({ user }) {
   const [summary, setSummary] = useState(null);
   const [chartData, setChartData] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [selectedGrantId, setSelectedGrantId] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -37,6 +38,15 @@ function Dashboard({ user }) {
   const fetchDocuments = async () => {
     const response = await api.get("/documents");
     setDocuments(response.data);
+  };
+
+  const fetchAuditLogs = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const response = await api.get("/audit-logs");
+    setAuditLogs(response.data);
   };
 
   const [filters, setFilters] = useState({
@@ -77,6 +87,10 @@ function Dashboard({ user }) {
     fetchSummary();
     fetchChartData();
     fetchDocuments();
+
+    if (isAdmin) {
+      fetchAuditLogs();
+    }
   }, []);
 
   const handleFormChange = (e) => {
@@ -121,6 +135,7 @@ function Dashboard({ user }) {
     fetchGrants();
     fetchSummary();
     fetchChartData();
+    fetchAuditLogs();
   };
 
   const handleCreateGrant = async (e) => {
@@ -145,6 +160,7 @@ function Dashboard({ user }) {
     fetchGrants();
     fetchSummary();
     fetchChartData();
+    fetchAuditLogs();
   };
 
   const handleAiExtract = async (documentId) => {
@@ -212,6 +228,39 @@ function Dashboard({ user }) {
   }
 };
 
+  const downloadReport = async (format) => {
+    try {
+      const response = await api.get(
+        `/reports/grants.${format}`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const fileUrl = window.URL.createObjectURL(
+        new Blob([response.data])
+      );
+
+      const link = window.document.createElement("a");
+      link.href = fileUrl;
+      link.download =
+        format === "csv"
+          ? "grant_report.csv"
+          : "grant_report.xlsx";
+
+      window.document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(fileUrl);
+    } catch (error) {
+      alert(
+        error.response?.data?.detail ||
+          "Report download failed."
+      );
+    }
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     fetchGrants();
@@ -234,6 +283,7 @@ function Dashboard({ user }) {
     fetchGrants();
     fetchSummary();
     fetchChartData();
+    fetchAuditLogs();
   };
 
   return (
@@ -372,6 +422,26 @@ function Dashboard({ user }) {
           )}
         </section>
       )}
+
+      <section className="card">
+        <h2>Reports</h2>
+
+        <div className="report-buttons">
+          <button
+            type="button"
+            onClick={() => downloadReport("csv")}
+          >
+            Download CSV
+          </button>
+
+          <button
+            type="button"
+            onClick={() => downloadReport("xlsx")}
+          >
+            Download Excel
+          </button>
+        </div>
+      </section>
 
       <section className="card">
         <h2>Search and Filter</h2>
@@ -748,6 +818,46 @@ function Dashboard({ user }) {
           <p>Select “AI Extract” beside a document.</p>
         )}
       </section>
+
+      {isAdmin && (
+        <section className="card">
+          <h2>Audit Logs</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User ID</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Resource ID</th>
+                <th>Details</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {auditLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{log.id}</td>
+                  <td>{log.user_id}</td>
+                  <td>{log.action}</td>
+                  <td>{log.resource_type}</td>
+                  <td>{log.resource_id ?? "-"}</td>
+                  <td>{log.details || "-"}</td>
+                  <td>{new Date(log.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan="7">No audit logs found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
   );
 }

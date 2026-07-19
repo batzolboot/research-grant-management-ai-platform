@@ -1,12 +1,23 @@
 from sqlalchemy.orm import Session
 from app import models, schemas
+from datetime import date, timedelta
 
 
 def create_grant(db: Session, grant: schemas.GrantCreate):
-    db_grant = models.Grant(**grant.model_dump())
+    grant_data = grant.model_dump()
+
+    today = date.today()
+    urgent_deadline = today + timedelta(days=30)
+
+    if today <= grant_data["deadline"] <= urgent_deadline:
+        grant_data["status"] = "Urgent"
+
+    db_grant = models.Grant(**grant_data)
+
     db.add(db_grant)
     db.commit()
     db.refresh(db_grant)
+
     return db_grant
 
 
@@ -40,7 +51,11 @@ def get_grant(db: Session, grant_id: int):
     return db.query(models.Grant).filter(models.Grant.id == grant_id).first()
 
 
-def update_grant(db: Session, grant_id: int, grant_update: schemas.GrantUpdate):
+def update_grant(
+    db: Session,
+    grant_id: int,
+    grant_update: schemas.GrantUpdate
+):
     db_grant = get_grant(db, grant_id)
 
     if not db_grant:
@@ -51,8 +66,15 @@ def update_grant(db: Session, grant_id: int, grant_update: schemas.GrantUpdate):
     for key, value in update_data.items():
         setattr(db_grant, key, value)
 
+    today = date.today()
+    urgent_deadline = today + timedelta(days=30)
+
+    if today <= db_grant.deadline <= urgent_deadline:
+        db_grant.status = "Urgent"
+
     db.commit()
     db.refresh(db_grant)
+
     return db_grant
 
 
@@ -112,5 +134,35 @@ def get_documents(db: Session):
     return (
         db.query(models.Document)
         .order_by(models.Document.uploaded_at.desc())
+        .all()
+    )
+
+def create_audit_log(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: int | None = None,
+    details: str | None = None,
+):
+    audit_log = models.AuditLog(
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=details,
+    )
+
+    db.add(audit_log)
+    db.commit()
+    db.refresh(audit_log)
+
+    return audit_log
+
+
+def get_audit_logs(db: Session):
+    return (
+        db.query(models.AuditLog)
+        .order_by(models.AuditLog.created_at.desc())
         .all()
     )

@@ -79,3 +79,15 @@ class AIGrantExtraction(BaseModel):
     status: Optional[str] = None
     compliance_status: Optional[str] = None
     summary: Optional[str] = None
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: int
+    action: str
+    resource_type: str
+    resource_id: Optional[int] = None
+    details: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

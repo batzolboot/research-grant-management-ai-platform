@@ -201,3 +201,9 @@ textarea {
   font-size: 14px;
   resize: vertical;
 }
+
+.report-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
