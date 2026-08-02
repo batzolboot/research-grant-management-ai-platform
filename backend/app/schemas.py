@@ -63,7 +63,7 @@ class DocumentResponse(BaseModel):
     original_filename: str
     stored_filename: str
     file_type: str
-    grant_id: int
+    grant_id: Optional[int] = None
     uploaded_by: int
     uploaded_at: datetime
 

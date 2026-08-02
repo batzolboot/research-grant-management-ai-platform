@@ -49,7 +49,7 @@ class Document(Base):
     stored_filename = Column(String, nullable=False, unique=True)
     file_type = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
-    grant_id = Column(Integer, nullable=False)
+    grant_id = Column(Integer, nullable=True)
     uploaded_by = Column(Integer, nullable=False)
     uploaded_at = Column(
         DateTime(timezone=True),

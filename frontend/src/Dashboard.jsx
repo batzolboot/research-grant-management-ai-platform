@@ -26,6 +26,7 @@ function Dashboard({ user }) {
   const [uploadMessage, setUploadMessage] = useState("");
   const [extractedDocument, setExtractedDocument] = useState(null);
   const [aiResult, setAiResult] = useState(null);
+  const [aiDocumentId, setAiDocumentId] = useState(null);
   const [aiMessage, setAiMessage] = useState("");
   const [extractionMessage, setExtractionMessage] = useState("");
   const [editingGrantId, setEditingGrantId] = useState(null);
@@ -99,12 +100,6 @@ function Dashboard({ user }) {
       fetchAuditLogs();
     }
   }, []);
-
-  useEffect(() => {
-    if (grants.length > 0 && !selectedGrantId) {
-      setSelectedGrantId(String(grants[0].id));
-    }
-  }, [grants, selectedGrantId]);
 
   const handleFormChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -186,6 +181,7 @@ function Dashboard({ user }) {
       );
 
       setAiResult(response.data);
+      setAiDocumentId(documentId);
       setAiMessage("");
     } catch (error) {
       setAiMessage(
@@ -216,13 +212,17 @@ function Dashboard({ user }) {
     e.preventDefault();
     setUploadMessage("");
 
-    if (!selectedGrantId || !selectedFile) {
-      setUploadMessage("Choose a grant and a file.");
+    if (!selectedFile) {
+      setUploadMessage("Choose a file.");
       return;
+    }
   }
 
   const formData = new FormData();
-  formData.append("grant_id", selectedGrantId);
+  if (selectedGrantId) {
+    formData.append("grant_id", selectedGrantId);
+  }
+
   formData.append("file", selectedFile);
 
   try {
@@ -419,9 +419,8 @@ function Dashboard({ user }) {
             <select
               value={selectedGrantId}
               onChange={(e) => setSelectedGrantId(e.target.value)}
-              required
             >
-              <option value="">Select a grant</option>
+              <option value="">No existing grant — create with AI</option>
 
               {grants.map((grant) => (
                 <option key={grant.id} value={grant.id}>
@@ -837,6 +836,55 @@ function Dashboard({ user }) {
               }}
             >
               Use These Fields
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const response = await api.post("/grants", {
+                    title: aiResult.title,
+                    principal_investigator:
+                      aiResult.principal_investigator,
+                    funding_agency: aiResult.funding_agency,
+                    amount: aiResult.amount,
+                    deadline: aiResult.deadline,
+                    status: aiResult.status || "Pending",
+                    compliance_status:
+                      aiResult.compliance_status || null,
+                  });
+
+                  const createdGrant = response.data;
+
+                  if (aiDocumentId) {
+                    await api.put(
+                      `/documents/${aiDocumentId}/link/${createdGrant.id}`
+                    );
+                  }
+
+                  setAiMessage(
+                    `Grant created and document linked to grant ID ${createdGrant.id}.`
+                  );
+
+                  setAiResult(null);
+                  setAiDocumentId(null);
+
+                  fetchGrants();
+                  fetchDocuments();
+                  fetchSummary();
+                  fetchChartData();
+
+                  if (isAdmin) {
+                    fetchAuditLogs();
+                  }
+                } catch (error) {
+                  setAiMessage(
+                    error.response?.data?.detail ||
+                      "Could not create and link the grant."
+                  );
+                }
+              }}
+            >
+              Create Grant and Link Document
             </button>
           </div>
         ) : (

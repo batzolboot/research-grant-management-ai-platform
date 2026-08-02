@@ -387,18 +387,21 @@ def dashboard_charts(
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
-    grant_id: int = Form(...),
+    grant_id: int | None = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(auth.require_admin),
 ):
     grant = crud.get_grant(db, grant_id)
 
-    if not grant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Grant not found",
-        )
+    if grant_id is not None:
+        grant = crud.get_grant(db, grant_id)
+
+        if not grant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Grant not found",
+            )
 
     original_filename = file.filename or "uploaded_file"
     file_extension = Path(original_filename).suffix.lower()
@@ -786,3 +789,52 @@ def update_task(
     )
 
     return task
+
+@app.put(
+    "/documents/{document_id}/link/{grant_id}",
+    response_model=schemas.DocumentResponse,
+)
+def link_document_to_grant(
+    document_id: int,
+    grant_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(auth.require_admin),
+):
+    uploaded_document = (
+        db.query(models.Document)
+        .filter(models.Document.id == document_id)
+        .first()
+    )
+
+    if not uploaded_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    grant = crud.get_grant(db, grant_id)
+
+    if not grant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Grant not found",
+        )
+
+    uploaded_document.grant_id = grant_id
+
+    db.commit()
+    db.refresh(uploaded_document)
+
+    crud.create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="LINK",
+        resource_type="Document",
+        resource_id=uploaded_document.id,
+        details=(
+            f"Linked document '{uploaded_document.original_filename}' "
+            f"to grant {grant_id}"
+        ),
+    )
+
+    return uploaded_document
