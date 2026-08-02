@@ -216,7 +216,32 @@ function Dashboard({ user }) {
       setUploadMessage("Choose a file.");
       return;
     }
-  }
+
+    const formData = new FormData();
+
+    if (selectedGrantId) {
+      formData.append("grant_id", selectedGrantId);
+    }
+
+    formData.append("file", selectedFile);
+
+    try {
+      await api.post("/documents/upload", formData);
+
+      setSelectedGrantId("");
+      setSelectedFile(null);
+      setUploadMessage("Document uploaded successfully.");
+
+      e.target.reset();
+
+      fetchDocuments();
+    } catch (error) {
+      setUploadMessage(
+        error.response?.data?.detail ||
+          "Document upload failed."
+      );
+    }
+  };
 
   const formData = new FormData();
   if (selectedGrantId) {
@@ -1000,6 +1025,6 @@ function Dashboard({ user }) {
       </section>
     </div>
   );
-}
+
 
 export default Dashboard;
