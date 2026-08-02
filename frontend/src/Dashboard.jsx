@@ -100,6 +100,12 @@ function Dashboard({ user }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (grants.length > 0 && !selectedGrantId) {
+      setSelectedGrantId(String(grants[0].id));
+    }
+  }, [grants, selectedGrantId]);
+
   const handleFormChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
