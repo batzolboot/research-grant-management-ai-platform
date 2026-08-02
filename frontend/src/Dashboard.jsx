@@ -844,6 +844,19 @@ function Dashboard({ user }) {
               type="button"
               onClick={async () => {
                 try {
+                  if (
+                    !aiResult.title ||
+                    !aiResult.principal_investigator ||
+                    !aiResult.funding_agency ||
+                    !aiResult.amount ||
+                    !aiResult.deadline
+                  ) {
+                    setAiMessage(
+                      "Please fill in all required fields, including the deadline."
+                    );
+                    return;
+                  }
+
                   const response = await api.post("/grants", {
                     title: aiResult.title,
                     principal_investigator:
@@ -880,10 +893,19 @@ function Dashboard({ user }) {
                     fetchAuditLogs();
                   }
                 } catch (error) {
-                  setAiMessage(
-                    error.response?.data?.detail ||
+                  const detail = error.response?.data?.detail;
+
+                  if (Array.isArray(detail)) {
+                    setAiMessage(
+                      detail.map((item) => item.msg).join(", ")
+                    );
+                  } else if (typeof detail === "string") {
+                    setAiMessage(detail);
+                  } else {
+                    setAiMessage(
                       "Could not create and link the grant."
-                  );
+                    );
+                  }
                 }
               }}
             >
