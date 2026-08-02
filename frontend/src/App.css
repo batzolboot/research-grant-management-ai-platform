@@ -207,3 +207,131 @@ textarea {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+.landing-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(
+      135deg,
+      #eff6ff 0%,
+      #f8fafc 45%,
+      #eef2ff 100%
+    );
+  color: #0f172a;
+}
+
+.landing-nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-nav h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.landing-hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 70px 32px;
+}
+
+.landing-content {
+  max-width: 800px;
+  margin-bottom: 60px;
+}
+
+.landing-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #2563eb;
+}
+
+.landing-content h1 {
+  margin: 16px 0;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: 1.05;
+}
+
+.landing-description {
+  max-width: 720px;
+  font-size: 19px;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.primary-large-button,
+.secondary-large-button {
+  padding: 14px 24px;
+  font-size: 16px;
+}
+
+.secondary-large-button {
+  background: white;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.feature-card {
+  background: rgba(255, 255, 255, 0.88);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.feature-card h3 {
+  margin-top: 0;
+}
+
+.feature-card p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.demo-status,
+.demo-error {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+}
+
+.demo-error {
+  color: #b91c1c;
+}
+
+@media (max-width: 600px) {
+  .landing-nav,
+  .landing-hero {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .landing-content h1 {
+    font-size: 42px;
+  }
+}

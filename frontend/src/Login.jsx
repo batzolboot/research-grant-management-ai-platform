@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "./api";
 import "./App.css";
 
-function Login({ onLogin }) {
+function Login({ onLogin, onBack }) {
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -76,6 +76,13 @@ function Login({ onLogin }) {
 
         <button type="submit" disabled={isLoading}>
           {isLoading ? "Logging in..." : "Login"}
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onBack}
+        >
+          Back to Home
         </button>
       </form>
     </div>
