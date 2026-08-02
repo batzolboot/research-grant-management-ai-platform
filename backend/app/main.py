@@ -20,11 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse, StreamingResponse
 
-import pandas as pd
-from pypdf import PdfReader
-
-from openai import OpenAI
-
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -45,6 +40,8 @@ def extract_document_text(file_path: Path) -> str:
     extension = file_path.suffix.lower()
 
     if extension == ".pdf":
+        from pypdf import PdfReader
+
         reader = PdfReader(str(file_path))
 
         pages = []
@@ -73,6 +70,8 @@ def extract_document_text(file_path: Path) -> str:
         return "\n".join(rows)
 
     if extension in {".xlsx", ".xls"}:
+        import pandas as pd
+
         spreadsheet = pd.read_excel(file_path)
 
         return spreadsheet.to_csv(
@@ -578,6 +577,8 @@ def ai_extract_document(
         )
 
     try:
+        from openai import OpenAI
+
         client = OpenAI()
 
         response = client.responses.parse(
@@ -676,6 +677,7 @@ def export_grants_excel(
     db: Session = Depends(get_db),
     current_user=Depends(auth.get_current_user),
 ):
+    import pandas as pd
     grants = db.query(models.Grant).order_by(models.Grant.id).all()
 
     report_rows = [
