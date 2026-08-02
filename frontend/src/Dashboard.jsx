@@ -243,28 +243,6 @@ function Dashboard({ user }) {
     }
   };
 
-  const formData = new FormData();
-  if (selectedGrantId) {
-    formData.append("grant_id", selectedGrantId);
-  }
-
-  formData.append("file", selectedFile);
-
-  try {
-    await api.post("/documents/upload", formData);
-
-    setSelectedGrantId("");
-    setSelectedFile(null);
-    setUploadMessage("Document uploaded successfully.");
-
-    e.target.reset();
-    fetchDocuments();
-  } catch (error) {
-    setUploadMessage(
-      error.response?.data?.detail || "Document upload failed."
-    );
-  }
-};
 
   const downloadReport = async (format) => {
     try {
@@ -1026,5 +1004,6 @@ function Dashboard({ user }) {
     </div>
   );
 
+}
 
 export default Dashboard;
